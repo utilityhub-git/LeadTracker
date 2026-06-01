@@ -62,6 +62,9 @@ export async function writeImportChunk(
       const rawCenter = columns.center !== null ? raw[columns.center] : null;
       const centerName =
         typeof rawCenter === "string" ? rawCenter.trim() || null : null;
+      const rawCampaign = columns.campaign !== null ? raw[columns.campaign] : null;
+      const campaignName =
+        typeof rawCampaign === "string" ? rawCampaign.trim() || null : null;
 
       ops.push({
         updateOne: {
@@ -73,6 +76,7 @@ export async function writeImportChunk(
               channel: sheet,
               sale_date: saleDate,
               center_name: centerName,
+              campaign_name: campaignName,
               imported_at: new Date(),
             },
           },

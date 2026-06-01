@@ -5,6 +5,7 @@ export type SearchRecord = {
   nmi: string | null;
   sale_date: string | null;
   center_name: string | null;
+  campaign_name: string | null;
 };
 
 export type SearchChannel = {
@@ -34,6 +35,7 @@ export type SheetReport = {
     nmi: string | null;
     date: string | null;
     center: string | null;
+    campaign: string | null;
   };
 };
 

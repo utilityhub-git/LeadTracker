@@ -11,6 +11,7 @@ const MIN_NMI_SCORE = 6;
 const PHONE_KEYWORDS = ["mobile", "phone", "contact", " no", "number", "ph ", "mob"];
 const DATE_KEYWORDS = ["date", "agreement", "doa", "sold"];
 const CENTER_KEYWORDS = ["center", "centre", "branch", "hub", "location"];
+const CAMPAIGN_KEYWORDS = ["campaign", "camp name", "camp_name", "promo", "promotion"];
 const NMI_KEYWORDS = ["nmi", "mirn", "site_identifier", "site identifier", "electricity"];
 
 const PHONE_RE = /^\d{9,10}$/;
@@ -98,6 +99,7 @@ export type ColMap = {
   nmi: number | null;
   date: number | null;
   center: number | null;
+  campaign: number | null;
 };
 
 export function detectColumns(headers: string[], sampleRows: unknown[][]): ColMap {
@@ -105,6 +107,7 @@ export function detectColumns(headers: string[], sampleRows: unknown[][]): ColMa
   let nmisBest = { idx: null as number | null, score: 0 };
   let dateBest = { idx: null as number | null, score: 0 };
   let centerBest = { idx: null as number | null, score: 0 };
+  let campaignBest = { idx: null as number | null, score: 0 };
 
   for (let idx = 0; idx < headers.length; idx++) {
     const h = (headers[idx] || "").toLowerCase().trim();
@@ -131,10 +134,23 @@ export function detectColumns(headers: string[], sampleRows: unknown[][]): ColMa
           !looksLikeNmi(v),
       ).length;
 
+    const cp =
+      CAMPAIGN_KEYWORDS.filter((kw) => h.includes(kw)).length * 4 +
+      vals.filter(
+        (v) =>
+          typeof v === "string" &&
+          v.length > 2 &&
+          v.length < 120 &&
+          !looksLikeDate(v) &&
+          !looksLikePhone(v) &&
+          !looksLikeNmi(v),
+      ).length;
+
     if (ph > phoneBest.score) phoneBest = { idx, score: ph };
     if (nm > nmisBest.score) nmisBest = { idx, score: nm };
     if (dt > dateBest.score) dateBest = { idx, score: dt };
     if (ct > centerBest.score) centerBest = { idx, score: ct };
+    if (cp > campaignBest.score) campaignBest = { idx, score: cp };
   }
 
   return {
@@ -142,6 +158,7 @@ export function detectColumns(headers: string[], sampleRows: unknown[][]): ColMa
     nmi: nmisBest.score >= MIN_NMI_SCORE ? nmisBest.idx : null,
     date: dateBest.score >= MIN_DATE_SCORE ? dateBest.idx : null,
     center: centerBest.score >= MIN_CENTER_SCORE ? centerBest.idx : null,
+    campaign: campaignBest.score >= 4 ? campaignBest.idx : null,
   };
 }
 

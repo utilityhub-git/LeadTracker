@@ -6,8 +6,9 @@ const SaleSchema = new Schema(
     nmi:         { type: String, default: null },
     channel:     { type: String, required: true },
     sale_date:   { type: Date,   default: null },
-    center_name: { type: String, default: null },
-    imported_at: { type: Date,   default: () => new Date() },
+    center_name:   { type: String, default: null },
+    campaign_name: { type: String, default: null },
+    imported_at:   { type: Date,   default: () => new Date() },
   },
   { timestamps: false },
 );

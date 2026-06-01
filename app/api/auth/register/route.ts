@@ -37,6 +37,12 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  if (!email.endsWith("@utilityhub.com.au")) {
+    return Response.json(
+      { error: "Registration is restricted to @utilityhub.com.au email addresses" },
+      { status: 403 },
+    );
+  }
 
   await connectDb();
 

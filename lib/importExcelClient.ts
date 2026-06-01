@@ -36,6 +36,7 @@ function detectedColumnLabels(headers: string[], cols: ColMap) {
     nmi: cols.nmi !== null ? (headers[cols.nmi] ?? null) : null,
     date: cols.date !== null ? (headers[cols.date] ?? null) : null,
     center: cols.center !== null ? (headers[cols.center] ?? null) : null,
+    campaign: cols.campaign !== null ? (headers[cols.campaign] ?? null) : null,
   };
 }
 
