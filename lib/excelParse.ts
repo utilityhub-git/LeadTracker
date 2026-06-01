@@ -153,13 +153,40 @@ export function detectColumns(headers: string[], sampleRows: unknown[][]): ColMa
     if (cp > campaignBest.score) campaignBest = { idx, score: cp };
   }
 
-  return {
+  const MIN_CAMPAIGN_SCORE = 4;
+  const raw: ColMap = {
     phone: phoneBest.score >= MIN_PHONE_SCORE ? phoneBest.idx : null,
     nmi: nmisBest.score >= MIN_NMI_SCORE ? nmisBest.idx : null,
     date: dateBest.score >= MIN_DATE_SCORE ? dateBest.idx : null,
     center: centerBest.score >= MIN_CENTER_SCORE ? centerBest.idx : null,
-    campaign: campaignBest.score >= 4 ? campaignBest.idx : null,
+    campaign: campaignBest.score >= MIN_CAMPAIGN_SCORE ? campaignBest.idx : null,
   };
+
+  // Resolve conflicts: if two fields share the same column index, keep only the higher-scoring one
+  const scores: Record<keyof ColMap, number> = {
+    phone: phoneBest.score,
+    nmi: nmisBest.score,
+    date: dateBest.score,
+    center: centerBest.score,
+    campaign: campaignBest.score,
+  };
+  const seen = new Map<number, { key: keyof ColMap; score: number }>();
+  for (const key of Object.keys(raw) as Array<keyof ColMap>) {
+    const idx = raw[key];
+    if (idx === null) continue;
+    const existing = seen.get(idx);
+    if (existing) {
+      if (scores[key] > existing.score) {
+        raw[existing.key] = null;
+        seen.set(idx, { key, score: scores[key] });
+      } else {
+        raw[key] = null;
+      }
+    } else {
+      seen.set(idx, { key, score: scores[key] });
+    }
+  }
+  return raw;
 }
 
 export function findBestPhoneColumn(rows: unknown[][]): number | null {
