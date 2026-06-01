@@ -113,7 +113,7 @@ export function SearchResults({ result, onClose }: Props) {
         return (
           <div
             key={ch.channel}
-            className="rounded-xl border border-slate-200 bg-white overflow-hidden"
+            className="rounded-xl border border-slate-200 bg-white"
           >
             <button
               type="button"
