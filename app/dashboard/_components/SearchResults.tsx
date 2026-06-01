@@ -138,26 +138,29 @@ export function SearchResults({ result, onClose }: Props) {
             </button>
 
             {isOpen && (
-              <div className="border-t border-slate-100">
-                <table className="w-full text-sm">
+              <div className="border-t border-slate-100 overflow-x-auto">
+                <table className="w-full min-w-max text-sm">
                   <thead>
                     <tr className="bg-slate-50">
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                         Phone
                       </th>
                       {showDncColumn && (
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-red-600 uppercase tracking-wide">
+                        <th className="px-4 py-2 text-left text-xs font-semibold text-red-600 uppercase tracking-wide whitespace-nowrap">
                           Present in DNC
                         </th>
                       )}
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                         NMI / MIRN
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                         Sale Date
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                         Center Name
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                        Campaign Name
                       </th>
                     </tr>
                   </thead>
@@ -169,7 +172,7 @@ export function SearchResults({ result, onClose }: Props) {
                       >
                         <td
                           className={cls(
-                            "px-4 py-2.5 font-mono text-xs",
+                            "px-4 py-2.5 font-mono text-xs whitespace-nowrap",
                             inDnc ? "text-red-600 font-semibold" : "text-slate-700",
                           )}
                         >
@@ -180,14 +183,19 @@ export function SearchResults({ result, onClose }: Props) {
                             Yes
                           </td>
                         )}
-                        <td className="px-4 py-2.5 font-mono text-xs text-slate-600">
+                        <td className="px-4 py-2.5 font-mono text-xs text-slate-600 whitespace-nowrap">
                           {r.nmi ?? <span className="text-slate-300">—</span>}
                         </td>
-                        <td className="px-4 py-2.5 text-slate-600">
+                        <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
                           {formatDate(r.sale_date)}
                         </td>
-                        <td className="px-4 py-2.5 text-slate-600">
+                        <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
                           {r.center_name ?? (
+                            <span className="text-slate-300 italic">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
+                          {r.campaign_name ?? (
                             <span className="text-slate-300 italic">—</span>
                           )}
                         </td>
