@@ -56,10 +56,10 @@ function calendarDate(year: number, month: number, day: number): Date | null {
 }
 
 function normalizeDateString(val: string): string {
-  return val
-    .trim()
-    .replace(/[\u2010-\u2015\u2212]/g, "-")
-    .split(/\s+/)[0] ?? "";
+  const trimmed = val.trim().replace(/[\u2010-\u2015\u2212]/g, "-");
+  const isoDate = trimmed.match(/^(\d{4}-\d{1,2}-\d{1,2})/);
+  if (isoDate) return isoDate[1];
+  return trimmed.split(/[T\s]/)[0] ?? "";
 }
 
 export function parseDate(val: unknown): Date | null {
@@ -83,14 +83,14 @@ export function parseDate(val: unknown): Date | null {
       if (fromSerial) return fromSerial;
     }
 
-    const dmy = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
-    if (dmy) {
-      return calendarDate(+dmy[3], +dmy[2], +dmy[1]);
-    }
-
     const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
     if (iso) {
       return calendarDate(+iso[1], +iso[2], +iso[3]);
+    }
+
+    const dmy = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+    if (dmy) {
+      return calendarDate(+dmy[3], +dmy[2], +dmy[1]);
     }
 
     const dmyShort = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2})$/);
@@ -115,20 +115,41 @@ export function parseDate(val: unknown): Date | null {
   return null;
 }
 
+/** Convert Excel cells to JSON-safe values (Date → dd-mm-yyyy string). */
+export function serializeImportCell(val: unknown): unknown {
+  if (val instanceof Date) {
+    if (Number.isNaN(val.getTime())) return null;
+    const d = val.getDate();
+    const m = val.getMonth() + 1;
+    const y = val.getFullYear();
+    return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${y}`;
+  }
+  return val;
+}
+
+export function serializeImportRow(
+  row: unknown[],
+  dateCol: number | null,
+): unknown[] {
+  return row.map((cell, i) =>
+    dateCol === i ? serializeImportCell(cell) : cell,
+  );
+}
+
 function dateValueLabel(val: unknown): string {
   if (val == null) return "(empty)";
   if (val instanceof Date) return val.toISOString();
   return String(val).trim().slice(0, 40) || "(blank)";
 }
 
-/** Parse sale date — tries formatted display first, then raw cell value. */
+/** Parse sale date from a row (values should already be serializeImportRow'd). */
 export function resolveSaleDate(
   raw: unknown[],
   dateCol: number | null,
   dateFmt?: unknown,
 ): Date | null {
   if (dateCol === null) return null;
-  for (const candidate of [dateFmt, raw[dateCol]]) {
+  for (const candidate of [raw[dateCol], dateFmt]) {
     const parsed = parseDate(candidate);
     if (parsed) return parsed;
   }
@@ -148,7 +169,7 @@ export type DateAudit = {
 export function auditDateColumn(
   headers: string[],
   cols: ColMap,
-  rows: { raw: unknown[]; dateFmt?: unknown }[],
+  rows: { raw: unknown[] }[],
   maxCheck = 800,
 ): DateAudit {
   const columnIndex = cols.date;
@@ -172,17 +193,14 @@ export function auditDateColumn(
 
   for (const row of toCheck) {
     const rawVal = row.raw[columnIndex];
-    const fmtVal = row.dateFmt;
-    if (rawVal == null && fmtVal == null) continue;
+    if (rawVal == null) continue;
 
-    if (resolveSaleDate(row.raw, columnIndex, row.dateFmt)) {
+    if (resolveSaleDate(row.raw, columnIndex)) {
       parsed++;
     } else {
       missing++;
       if (sampleFailures.length < 5) {
-        sampleFailures.push(
-          `raw=${dateValueLabel(rawVal)} · fmt=${dateValueLabel(fmtVal)}`,
-        );
+        sampleFailures.push(`value=${dateValueLabel(rawVal)}`);
       }
     }
   }

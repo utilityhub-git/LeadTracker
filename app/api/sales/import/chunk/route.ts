@@ -24,8 +24,8 @@ export async function POST(request: Request) {
   if (body.kind !== "sales" && body.kind !== "dnc") {
     return Response.json({ error: "Invalid kind" }, { status: 400 });
   }
-  if (body.rows.length > 500) {
-    return Response.json({ error: "Chunk too large (max 500 rows)" }, { status: 400 });
+  if (body.rows.length > 800) {
+    return Response.json({ error: "Chunk too large (max 800 rows)" }, { status: 400 });
   }
 
   try {

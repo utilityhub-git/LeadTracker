@@ -9,12 +9,13 @@ import {
   padRow,
   auditDateColumn,
   sampleRowsForDetection,
+  serializeImportRow,
   type ColMap,
 } from "./excelParse";
 
-/** Rows per API request — smaller chunks fail less often */
-export const IMPORT_CHUNK_SIZE = 400;
-const CHUNK_MAX_RETRIES = 4;
+/** Rows per API request */
+export const IMPORT_CHUNK_SIZE = 800;
+const CHUNK_MAX_RETRIES = 3;
 export type ImportProgress = {
   sheet: string;
   chunk: number;
@@ -62,7 +63,7 @@ async function postImportChunk(
       if (attempt === CHUNK_MAX_RETRIES - 1) throw err;
     }
 
-    await sleep(700 * (attempt + 1));
+    await sleep(400 * (attempt + 1));
   }
 
   throw new Error(lastError);
@@ -83,7 +84,12 @@ export async function importExcelFileChunked(
   onProgress?: (p: ImportProgress) => void,
 ): Promise<ImportResult> {
   const buffer = await file.arrayBuffer();
-  const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+  const wb = XLSX.read(buffer, {
+    type: "array",
+    cellDates: true,
+    cellNF: false,
+    cellStyles: false,
+  });
 
   const sheetNames = wb.SheetNames.filter((n) => !NON_SALES_SHEETS.has(n));
   const reports: SheetReport[] = [];
@@ -97,11 +103,6 @@ export async function importExcelFileChunked(
       defval: null,
       raw: true,
     }) as unknown[][];
-    const rowsFmt = XLSX.utils.sheet_to_json(ws, {
-      header: 1,
-      defval: null,
-      raw: false,
-    }) as unknown[][];
 
     if (rowsRaw.length < 2) continue;
 
@@ -111,7 +112,6 @@ export async function importExcelFileChunked(
     );
     const columnCount = headers.length;
     const dataRaw = rowsRaw.slice(headerIdx + 1);
-    const dataFmt = rowsFmt.slice(headerIdx + 1);
 
     const kind = sheetName === DNC_SHEET_NAME ? "dnc" : "sales";
     let cols = detectColumns(
@@ -131,14 +131,9 @@ export async function importExcelFileChunked(
       continue;
     }
 
-    const paddedRows = (dataRaw as unknown[][]).map((raw, i) => {
-      const padded = padRow(raw, columnCount);
-      const fmt = padRow((dataFmt[i] ?? []) as unknown[], columnCount);
-      return {
-        raw: padded,
-        dateFmt: cols.date !== null ? fmt[cols.date] : undefined,
-      };
-    });
+    const paddedRows = (dataRaw as unknown[][]).map((raw) => ({
+      raw: serializeImportRow(padRow(raw, columnCount), cols.date),
+    }));
     const dateAudit =
       kind === "sales"
         ? auditDateColumn(headers, cols, paddedRows)

@@ -88,8 +88,6 @@ async function safeBulkWriteBatched(
 
 export type ImportChunkRow = {
   raw: unknown[];
-  /** Formatted date cell when raw alone is not parseable (Excel serial display). */
-  dateFmt?: unknown;
 };
 
 export type ImportChunkPayload = {
@@ -145,10 +143,9 @@ export async function writeImportChunk(
     } else {
       const nmi =
         columns.nmi !== null ? normalizeNmi(raw[columns.nmi]) : null;
-      const saleDate = resolveSaleDate(raw, columns.date, row.dateFmt);
+      const saleDate = resolveSaleDate(raw, columns.date);
       if (columns.date !== null) {
-        const hasDateCell =
-          raw[columns.date] != null || row.dateFmt != null;
+        const hasDateCell = raw[columns.date] != null;
         if (saleDate) datesParsed++;
         else if (hasDateCell) datesMissing++;
       }
