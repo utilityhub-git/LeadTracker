@@ -9,7 +9,16 @@ const MIN_CENTER_SCORE = 8;
 const MIN_NMI_SCORE = 6;
 
 const PHONE_KEYWORDS = ["mobile", "phone", "contact", " no", "number", "ph ", "mob"];
-const DATE_KEYWORDS = ["date", "agreement", "doa", "sold"];
+const DATE_KEYWORDS = [
+  "date",
+  "agreement",
+  "doa",
+  "sold",
+  "sign",
+  "closed",
+  "connection",
+  "install",
+];
 const CENTER_KEYWORDS = ["center", "centre", "branch", "hub", "location"];
 const CAMPAIGN_KEYWORDS = ["campaign", "camp name", "camp_name", "promo", "promotion"];
 const NMI_KEYWORDS = ["nmi", "mirn", "site_identifier", "site identifier", "electricity"];
@@ -23,28 +32,191 @@ export function normalizePhone(val: unknown): string | null {
   return s.length === 10 ? s : "0" + s;
 }
 
-export function parseDate(val: unknown): Date | null {
-  if (val instanceof Date && !Number.isNaN(val.getTime())) return val;
-  if (typeof val === "number") {
-    const d = XLSX.SSF.parse_date_code(val);
-    if (d) return new Date(d.y, d.m - 1, d.d);
+/** Excel serial date (days since 1899-12-30). */
+function parseExcelSerial(n: number): Date | null {
+  if (!Number.isFinite(n) || n < 1) return null;
+  const d = XLSX.SSF.parse_date_code(n);
+  if (!d) return null;
+  return calendarDate(d.y, d.m, d.d);
+}
+
+/** Local calendar date at midnight — avoids UTC day shifts from `Date` / ISO strings. */
+function calendarDate(year: number, month: number, day: number): Date | null {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const date = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
   }
+  return date;
+}
+
+function normalizeDateString(val: string): string {
+  return val
+    .trim()
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .split(/\s+/)[0] ?? "";
+}
+
+export function parseDate(val: unknown): Date | null {
+  if (val == null) return null;
+
+  if (val instanceof Date) {
+    if (Number.isNaN(val.getTime())) return null;
+    return calendarDate(val.getFullYear(), val.getMonth() + 1, val.getDate());
+  }
+
+  if (typeof val === "number") {
+    return parseExcelSerial(val);
+  }
+
   if (typeof val === "string") {
-    const patterns: [RegExp, (a: string, b: string, c: string) => Date][] = [
-      [/^(\d{2})\/(\d{2})\/(\d{4})$/, (d, m, y) => new Date(+y, +m - 1, +d)],
-      [/^(\d{2})-(\d{2})-(\d{4})$/, (d, m, y) => new Date(+y, +m - 1, +d)],
-      [/^(\d{2})\.(\d{2})\.(\d{4})$/, (d, m, y) => new Date(+y, +m - 1, +d)],
-      [/^(\d{4})-(\d{2})-(\d{2})$/, (y, m, d) => new Date(+y, +m - 1, +d)],
-    ];
-    for (const [re, build] of patterns) {
-      const m = val.trim().match(re);
-      if (m) {
-        const date = build(m[1], m[2], m[3]);
-        if (!Number.isNaN(date.getTime())) return date;
+    const s = normalizeDateString(val);
+    if (!s) return null;
+
+    if (/^\d{4,5}(\.\d+)?$/.test(s)) {
+      const fromSerial = parseExcelSerial(Number(s));
+      if (fromSerial) return fromSerial;
+    }
+
+    const dmy = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+    if (dmy) {
+      return calendarDate(+dmy[3], +dmy[2], +dmy[1]);
+    }
+
+    const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (iso) {
+      return calendarDate(+iso[1], +iso[2], +iso[3]);
+    }
+
+    const dmyShort = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2})$/);
+    if (dmyShort) {
+      const year = +dmyShort[3] + (+dmyShort[3] >= 70 ? 1900 : 2000);
+      return calendarDate(year, +dmyShort[2], +dmyShort[1]);
+    }
+
+    const named = s.match(/^(\d{1,2})[-\s]([A-Za-z]{3,9})[-\s/](\d{4})$/i);
+    if (named) {
+      const attempt = new Date(`${named[1]} ${named[2]} ${named[3]}`);
+      if (!Number.isNaN(attempt.getTime())) {
+        return calendarDate(
+          attempt.getFullYear(),
+          attempt.getMonth() + 1,
+          attempt.getDate(),
+        );
       }
     }
   }
+
   return null;
+}
+
+function dateValueLabel(val: unknown): string {
+  if (val == null) return "(empty)";
+  if (val instanceof Date) return val.toISOString();
+  return String(val).trim().slice(0, 40) || "(blank)";
+}
+
+/** Parse sale date — tries formatted display first, then raw cell value. */
+export function resolveSaleDate(
+  raw: unknown[],
+  dateCol: number | null,
+  dateFmt?: unknown,
+): Date | null {
+  if (dateCol === null) return null;
+  for (const candidate of [dateFmt, raw[dateCol]]) {
+    const parsed = parseDate(candidate);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+export type DateAudit = {
+  column: string | null;
+  columnIndex: number | null;
+  rowsChecked: number;
+  parsed: number;
+  missing: number;
+  sampleFailures: string[];
+};
+
+/** Check how many rows parse a sale date before / after import (client-side). */
+export function auditDateColumn(
+  headers: string[],
+  cols: ColMap,
+  rows: { raw: unknown[]; dateFmt?: unknown }[],
+  maxCheck = 800,
+): DateAudit {
+  const columnIndex = cols.date;
+  const column =
+    columnIndex !== null ? (headers[columnIndex] ?? null) : null;
+  if (columnIndex === null) {
+    return {
+      column: null,
+      columnIndex: null,
+      rowsChecked: 0,
+      parsed: 0,
+      missing: 0,
+      sampleFailures: ["No date column detected — check header row has DOA / Date"],
+    };
+  }
+
+  let parsed = 0;
+  let missing = 0;
+  const sampleFailures: string[] = [];
+  const toCheck = rows.slice(0, maxCheck);
+
+  for (const row of toCheck) {
+    const rawVal = row.raw[columnIndex];
+    const fmtVal = row.dateFmt;
+    if (rawVal == null && fmtVal == null) continue;
+
+    if (resolveSaleDate(row.raw, columnIndex, row.dateFmt)) {
+      parsed++;
+    } else {
+      missing++;
+      if (sampleFailures.length < 5) {
+        sampleFailures.push(
+          `raw=${dateValueLabel(rawVal)} · fmt=${dateValueLabel(fmtVal)}`,
+        );
+      }
+    }
+  }
+
+  return {
+    column,
+    columnIndex,
+    rowsChecked: toCheck.length,
+    parsed,
+    missing,
+    sampleFailures,
+  };
+}
+
+/** Spread sample across the sheet — top rows are often blank before real data. */
+export function sampleRowsForDetection(
+  rows: unknown[][],
+  max = 40,
+): unknown[][] {
+  if (rows.length <= max) return rows;
+  const indices = new Set<number>();
+  for (let i = 0; i < max; i++) {
+    indices.add(Math.floor((i * (rows.length - 1)) / (max - 1)));
+  }
+  return [...indices].sort((a, b) => a - b).map((i) => rows[i]);
+}
+
+/** Pad sparse xlsx rows so column indexes line up with the header row. */
+export function padRow(row: unknown[], columnCount: number): unknown[] {
+  const out = new Array<unknown>(columnCount).fill(null);
+  for (let i = 0; i < row.length && i < columnCount; i++) {
+    out[i] = row[i];
+  }
+  return out;
 }
 
 export function normalizeNmi(val: unknown): string | null {
@@ -103,6 +275,7 @@ export type ColMap = {
 };
 
 export function detectColumns(headers: string[], sampleRows: unknown[][]): ColMap {
+  const sample = sampleRowsForDetection(sampleRows, 40);
   let phoneBest = { idx: null as number | null, score: 0 };
   let nmisBest = { idx: null as number | null, score: 0 };
   let dateBest = { idx: null as number | null, score: 0 };
@@ -111,7 +284,7 @@ export function detectColumns(headers: string[], sampleRows: unknown[][]): ColMa
 
   for (let idx = 0; idx < headers.length; idx++) {
     const h = (headers[idx] || "").toLowerCase().trim();
-    const vals = sampleRows.map((r) => r[idx]).filter((v) => v != null).slice(0, 15);
+    const vals = sample.map((r) => r[idx]).filter((v) => v != null).slice(0, 15);
 
     const ph =
       PHONE_KEYWORDS.filter((kw) => h.includes(kw)).length * 3 +
@@ -154,10 +327,16 @@ export function detectColumns(headers: string[], sampleRows: unknown[][]): ColMa
   }
 
   const MIN_CAMPAIGN_SCORE = 4;
+  let dateIdx =
+    dateBest.score >= MIN_DATE_SCORE ? dateBest.idx : null;
+  if (dateIdx === null) {
+    dateIdx = findBestDateColumn(sampleRowsForDetection(sampleRows, 120));
+  }
+
   const raw: ColMap = {
     phone: phoneBest.score >= MIN_PHONE_SCORE ? phoneBest.idx : null,
     nmi: nmisBest.score >= MIN_NMI_SCORE ? nmisBest.idx : null,
-    date: dateBest.score >= MIN_DATE_SCORE ? dateBest.idx : null,
+    date: dateIdx,
     center: centerBest.score >= MIN_CENTER_SCORE ? centerBest.idx : null,
     campaign: campaignBest.score >= MIN_CAMPAIGN_SCORE ? campaignBest.idx : null,
   };
@@ -198,6 +377,22 @@ export function findBestPhoneColumn(rows: unknown[][]): number | null {
       .slice(0, 30)
       .map((r) => r[idx])
       .filter(looksLikePhone).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = idx;
+    }
+  }
+  return bestScore >= 3 ? bestIdx : null;
+}
+
+export function findBestDateColumn(rows: unknown[][]): number | null {
+  const colCount = Math.max(0, ...rows.map((r) => r.length));
+  let bestIdx: number | null = null;
+  let bestScore = 0;
+  for (let idx = 0; idx < colCount; idx++) {
+    const score = sampleRowsForDetection(rows, 80)
+      .map((r) => r[idx])
+      .filter(looksLikeDate).length;
     if (score > bestScore) {
       bestScore = score;
       bestIdx = idx;
