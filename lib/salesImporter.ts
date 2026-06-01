@@ -28,6 +28,7 @@ export interface SheetReport {
     nmi: string | null;
     date: string | null;
     center: string | null;
+    campaign: string | null;
   };
 }
 
@@ -91,6 +92,7 @@ async function importDncSheet(ws: XLSX.WorkSheet): Promise<SheetReport> {
       nmi: null,
       date: null,
       center: null,
+      campaign: null,
     },
   };
 }
