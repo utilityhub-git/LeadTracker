@@ -155,6 +155,9 @@ export async function importExcelBuffer(buffer: ArrayBuffer): Promise<SheetRepor
       const rawCenter = cols.center !== null ? raw[cols.center] : null;
       const centerName =
         typeof rawCenter === "string" ? rawCenter.trim() || null : null;
+      const rawCampaign = cols.campaign !== null ? raw[cols.campaign] : null;
+      const campaignName =
+        typeof rawCampaign === "string" ? rawCampaign.trim() || null : null;
 
       ops.push({
         updateOne: {
@@ -166,6 +169,7 @@ export async function importExcelBuffer(buffer: ArrayBuffer): Promise<SheetRepor
               channel: sheetName,
               sale_date: saleDate,
               center_name: centerName,
+              campaign_name: campaignName,
               imported_at: new Date(),
             },
           },
@@ -189,6 +193,7 @@ export async function importExcelBuffer(buffer: ArrayBuffer): Promise<SheetRepor
           nmi: cols.nmi !== null ? (headers[cols.nmi] ?? null) : null,
           date: cols.date !== null ? (headers[cols.date] ?? null) : null,
           center: cols.center !== null ? (headers[cols.center] ?? null) : null,
+          campaign: cols.campaign !== null ? (headers[cols.campaign] ?? null) : null,
         },
       });
     } else {
@@ -207,6 +212,7 @@ export interface ChannelResult {
     nmi: string | null;
     sale_date: Date | null;
     center_name: string | null;
+    campaign_name: string | null;
   }[];
 }
 
@@ -215,6 +221,7 @@ const RECORD_PUSH = {
   nmi: "$nmi",
   sale_date: "$sale_date",
   center_name: "$center_name",
+  campaign_name: "$campaign_name",
 };
 
 export async function isPhoneInDnc(phone: string): Promise<boolean> {
