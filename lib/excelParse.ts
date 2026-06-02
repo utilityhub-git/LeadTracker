@@ -23,7 +23,10 @@ const CENTER_KEYWORDS = ["center", "centre", "branch", "hub", "location"];
 const CAMPAIGN_KEYWORDS = ["campaign", "camp name", "camp_name", "promo", "promotion"];
 const NMI_KEYWORDS = ["nmi", "mirn", "site_identifier", "site identifier", "electricity"];
 
-const PHONE_RE = /^\d{9,10}$/;
+// Australian phones: 10-digit starting with 0 (04xx mobile, 02/03/07/08 landline)
+// or 9-digit without leading 0 (legacy). This deliberately excludes 10-digit NMIs
+// that do NOT start with 0 (e.g. 4203000001) which would otherwise be misdetected.
+const PHONE_RE = /^(0\d{9}|\d{9})$/;
 
 export function normalizePhone(val: unknown): string | null {
   if (val == null) return null;
