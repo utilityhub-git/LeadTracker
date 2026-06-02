@@ -14,7 +14,7 @@ import {
 } from "./excelParse";
 
 /** Rows per API request — kept small so each request finishes within Vercel's function timeout */
-export const IMPORT_CHUNK_SIZE = 300;
+export const IMPORT_CHUNK_SIZE = 600;
 
 const CHUNK_MAX_RETRIES = 3;
 
@@ -91,7 +91,7 @@ export async function importExcelFileChunked(
   const buffer = await file.arrayBuffer();
   const wb = XLSX.read(buffer, {
     type: "array",
-    cellDates: true,
+    cellDates: false,
     cellNF: false,
     cellStyles: false,
   });
@@ -103,10 +103,16 @@ export async function importExcelFileChunked(
   for (const sheetName of sheetNames) {
     sheetIndex++;
     const ws = wb.Sheets[sheetName];
+    // raw:true for numbers (phone/NMI detection); raw:false for formatted strings (date display)
     const rowsRaw = XLSX.utils.sheet_to_json(ws, {
       header: 1,
       defval: null,
       raw: true,
+    }) as unknown[][];
+    const rowsFmt = XLSX.utils.sheet_to_json(ws, {
+      header: 1,
+      defval: null,
+      raw: false,
     }) as unknown[][];
 
     if (rowsRaw.length < 2) continue;
@@ -117,6 +123,7 @@ export async function importExcelFileChunked(
     );
     const columnCount = headers.length;
     const dataRaw = rowsRaw.slice(headerIdx + 1);
+    const dataFmt = rowsFmt.slice(headerIdx + 1);
 
     const kind = sheetName === DNC_SHEET_NAME ? "dnc" : "sales";
     let cols = detectColumns(
@@ -136,8 +143,12 @@ export async function importExcelFileChunked(
       continue;
     }
 
-    const paddedRows = (dataRaw as unknown[][]).map((raw) => ({
-      raw: serializeImportRow(padRow(raw, columnCount), cols.date),
+    const paddedRows = (dataRaw as unknown[][]).map((raw, i) => ({
+      raw: serializeImportRow(
+        padRow(raw, columnCount),
+        padRow((dataFmt[i] as unknown[]) ?? [], columnCount),
+        cols.date,
+      ),
     }));
     const dateAudit =
       kind === "sales"
