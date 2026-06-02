@@ -156,11 +156,18 @@ export async function importExcelBuffer(buffer: ArrayBuffer): Promise<SheetRepor
       }
 
       const nmi = cols.nmi !== null ? normalizeNmi(raw[cols.nmi]) : null;
-      const saleDate = resolveSaleDate(
-        raw as unknown[],
-        cols.date,
-        cols.date !== null ? fmt[cols.date] : undefined,
-      );
+      const rawDateVal = cols.date !== null ? raw[cols.date] : null;
+      const saleDate =
+        typeof rawDateVal === "string" && rawDateVal.trim()
+          ? rawDateVal.trim()
+          : rawDateVal instanceof Date
+            ? (() => {
+                const d = rawDateVal.getUTCDate();
+                const m = rawDateVal.getUTCMonth() + 1;
+                const y = rawDateVal.getUTCFullYear();
+                return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${y}`;
+              })()
+            : null;
       const rawCenter = cols.center !== null ? raw[cols.center] : null;
       const centerName =
         typeof rawCenter === "string" ? rawCenter.trim() || null : null;

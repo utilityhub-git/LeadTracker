@@ -5,7 +5,6 @@ import {
   normalizeNmi,
   normalizePhone,
   padRow,
-  resolveSaleDate,
 } from "./excelParse";
 import { serializeImportWrite } from "./importWriteLock";
 import { Dnc } from "@/models/Dnc";
@@ -143,11 +142,14 @@ export async function writeImportChunk(
     } else {
       const nmi =
         columns.nmi !== null ? normalizeNmi(raw[columns.nmi]) : null;
-      const saleDate = resolveSaleDate(raw, columns.date);
+      const rawDateVal = columns.date !== null ? raw[columns.date] : null;
+      const saleDate =
+        typeof rawDateVal === "string" && rawDateVal.trim()
+          ? rawDateVal.trim()
+          : null;
       if (columns.date !== null) {
-        const hasDateCell = raw[columns.date] != null;
         if (saleDate) datesParsed++;
-        else if (hasDateCell) datesMissing++;
+        else if (rawDateVal != null) datesMissing++;
       }
       const rawCenter = columns.center !== null ? raw[columns.center] : null;
       const centerName =
