@@ -165,28 +165,20 @@ export async function writeImportChunk(
         });
       }
 
-      const update: {
-        $setOnInsert: Record<string, unknown>;
-        $set?: { sale_date: Date };
-      } = {
-        $setOnInsert: {
-          phone,
-          nmi,
-          channel: sheet,
-          sale_date: saleDate,
-          center_name: centerName,
-          campaign_name: campaignName,
-          imported_at: new Date(),
-        },
-      };
-      if (saleDate) {
-        update.$set = { sale_date: saleDate };
-      }
-
       ops.push({
         updateOne: {
           filter: { phone, channel: sheet, sale_date: saleDate },
-          update,
+          update: {
+            $setOnInsert: {
+              phone,
+              nmi,
+              channel: sheet,
+              sale_date: saleDate,
+              center_name: centerName,
+              campaign_name: campaignName,
+              imported_at: new Date(),
+            },
+          },
           upsert: true,
         },
       });
