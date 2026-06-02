@@ -13,13 +13,13 @@ import {
   type ColMap,
 } from "./excelParse";
 
-/** Rows per API request */
-export const IMPORT_CHUNK_SIZE = 1500;
+/** Rows per API request — kept small so each request finishes within Vercel's function timeout */
+export const IMPORT_CHUNK_SIZE = 300;
 
 const CHUNK_MAX_RETRIES = 3;
 
 /** Max concurrent chunk requests per sheet */
-const CHUNK_CONCURRENCY = 4;
+const CHUNK_CONCURRENCY = 3;
 
 export type ImportProgress = {
   sheet: string;
@@ -158,23 +158,21 @@ export async function importExcelFileChunked(
 
     for (let i = 0; i < chunks.length; i += CHUNK_CONCURRENCY) {
       const batch = chunks.slice(i, i + CHUNK_CONCURRENCY);
-      const results = await Promise.all(
-        batch.map((rows, j) =>
-          postImportChunk({ ...basePayload, rows }, sheetName).catch(() => {
-            failedChunks++;
-            throw new Error(
-              `Import stopped on ${sheetName} (batch ${i + j + 1} of ${chunks.length} failed after ${CHUNK_MAX_RETRIES} retries). Earlier batches for this sheet were saved.`,
-            );
-          }),
-        ),
+      const settled = await Promise.allSettled(
+        batch.map((rows) => postImportChunk({ ...basePayload, rows }, sheetName)),
       );
 
-      for (const data of results) {
-        inserted += data.inserted;
-        duplicates += data.duplicates;
-        skippedRows += data.skippedRows;
-        importDatesParsed += data.datesParsed ?? 0;
-        importDatesMissing += data.datesMissing ?? 0;
+      for (const result of settled) {
+        if (result.status === "fulfilled") {
+          inserted += result.value.inserted;
+          duplicates += result.value.duplicates;
+          skippedRows += result.value.skippedRows;
+          importDatesParsed += result.value.datesParsed ?? 0;
+          importDatesMissing += result.value.datesMissing ?? 0;
+        } else {
+          // Chunk failed after all retries — record it and continue with remaining chunks
+          failedChunks++;
+        }
       }
 
       chunksDone += batch.length;

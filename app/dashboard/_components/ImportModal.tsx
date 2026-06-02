@@ -194,6 +194,8 @@ export function ImportModal({ onClose, onImported }: Props) {
                   >
                     {r.skipped ? (
                       <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+                    ) : (r.failedChunks ?? 0) > 0 ? (
+                      <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
                     ) : (
                       <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
                     )}
@@ -218,6 +220,11 @@ export function ImportModal({ onClose, onImported }: Props) {
                           {(r.skippedRows ?? 0) > 0 && (
                             <span className="text-xs text-slate-400">
                               {r.skippedRows} skipped
+                            </span>
+                          )}
+                          {(r.failedChunks ?? 0) > 0 && (
+                            <span className="text-xs text-red-500">
+                              {r.failedChunks} batch{(r.failedChunks ?? 0) > 1 ? "es" : ""} failed
                             </span>
                           )}
                         </div>
