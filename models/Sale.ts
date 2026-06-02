@@ -5,7 +5,7 @@ const SaleSchema = new Schema(
     phone:       { type: String, required: true },
     nmi:         { type: String, default: null },
     channel:     { type: String, required: true },
-    sale_date:   { type: Date,   default: null },
+    sale_date:   { type: String, default: null },
     center_name:   { type: String, default: null },
     campaign_name: { type: String, default: null },
     imported_at:   { type: Date,   default: () => new Date() },
