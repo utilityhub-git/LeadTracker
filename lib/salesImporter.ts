@@ -177,28 +177,20 @@ export async function importExcelBuffer(buffer: ArrayBuffer): Promise<SheetRepor
         });
       }
 
-      const update: {
-        $setOnInsert: Record<string, unknown>;
-        $set?: { sale_date: Date };
-      } = {
-        $setOnInsert: {
-          phone,
-          nmi,
-          channel: sheetName,
-          sale_date: saleDate,
-          center_name: centerName,
-          campaign_name: campaignName,
-          imported_at: new Date(),
-        },
-      };
-      if (saleDate) {
-        update.$set = { sale_date: saleDate };
-      }
-
       ops.push({
         updateOne: {
           filter: { phone, channel: sheetName, sale_date: saleDate },
-          update,
+          update: {
+            $setOnInsert: {
+              phone,
+              nmi,
+              channel: sheetName,
+              sale_date: saleDate,
+              center_name: centerName,
+              campaign_name: campaignName,
+              imported_at: new Date(),
+            },
+          },
           upsert: true,
         },
       });
