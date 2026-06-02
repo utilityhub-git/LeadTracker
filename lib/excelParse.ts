@@ -41,7 +41,9 @@ export function parseDate(val: unknown): Date | null {
   if (val instanceof Date && !Number.isNaN(val.getTime())) return val;
 
   if (typeof val === "number") {
-    return parseExcelSerial(val);
+    const d = XLSX.SSF.parse_date_code(val);
+    if (d) return new Date(d.y, d.m - 1, d.d);
+    return null;
   }
 
   if (typeof val === "string") {
