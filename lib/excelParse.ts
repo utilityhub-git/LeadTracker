@@ -45,7 +45,7 @@ export function parseDate(val: unknown): Date | null {
 
   if (typeof val === "number") {
     const d = XLSX.SSF.parse_date_code(val);
-    if (d) return new Date(d.y, d.m - 1, d.d);
+    if (d) return new Date(Date.UTC(d.y, d.m - 1, d.d));
     return null;
   }
 
@@ -56,14 +56,14 @@ export function parseDate(val: unknown): Date | null {
     // ISO datetime string from JSON-serialised Date: "2026-04-30T00:00:00.000Z"
     const isoTs = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s]/);
     if (isoTs) {
-      const d = new Date(+isoTs[1], +isoTs[2] - 1, +isoTs[3]);
+      const d = new Date(Date.UTC(+isoTs[1], +isoTs[2] - 1, +isoTs[3]));
       if (!Number.isNaN(d.getTime())) return d;
     }
 
     // ISO date-only: "2026-04-30"
     const isoDate = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (isoDate) {
-      const d = new Date(+isoDate[1], +isoDate[2] - 1, +isoDate[3]);
+      const d = new Date(Date.UTC(+isoDate[1], +isoDate[2] - 1, +isoDate[3]));
       if (!Number.isNaN(d.getTime())) return d;
     }
 
@@ -80,12 +80,12 @@ export function parseDate(val: unknown): Date | null {
       const year = +numFull[3];
       if (month > 12 && day <= 12) [day, month] = [month, day]; // US format swap
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        const d = new Date(year, month - 1, day);
-        if (!Number.isNaN(d.getTime()) && d.getMonth() === month - 1) return d;
+        const d = new Date(Date.UTC(year, month - 1, day));
+        if (!Number.isNaN(d.getTime()) && d.getUTCMonth() === month - 1) return d;
       }
       // Last-resort swap (e.g. ambiguous single-digit both ≤ 12 but month part invalid)
-      const d2 = new Date(+numFull[3], day - 1, month);
-      if (!Number.isNaN(d2.getTime()) && d2.getMonth() === day - 1) return d2;
+      const d2 = new Date(Date.UTC(+numFull[3], day - 1, month));
+      if (!Number.isNaN(d2.getTime()) && d2.getUTCMonth() === day - 1) return d2;
     }
 
     // "16/022024" — missing separator between month and year (dd/mmyyyy)
@@ -93,8 +93,8 @@ export function parseDate(val: unknown): Date | null {
     if (numMissingSep) {
       const day = +numMissingSep[1], month = +numMissingSep[2], year = +numMissingSep[3];
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        const d = new Date(year, month - 1, day);
-        if (!Number.isNaN(d.getTime()) && d.getMonth() === month - 1) return d;
+        const d = new Date(Date.UTC(year, month - 1, day));
+        if (!Number.isNaN(d.getTime()) && d.getUTCMonth() === month - 1) return d;
       }
     }
 
@@ -103,8 +103,8 @@ export function parseDate(val: unknown): Date | null {
     if (numLeadZeroYear) {
       const day = +numLeadZeroYear[1], month = +numLeadZeroYear[2], year = +numLeadZeroYear[3];
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        const d = new Date(year, month - 1, day);
-        if (!Number.isNaN(d.getTime()) && d.getMonth() === month - 1) return d;
+        const d = new Date(Date.UTC(year, month - 1, day));
+        if (!Number.isNaN(d.getTime()) && d.getUTCMonth() === month - 1) return d;
       }
     }
 
@@ -115,7 +115,7 @@ export function parseDate(val: unknown): Date | null {
       if (m !== undefined) {
         let year = +textMonth[3];
         if (year < 100) year += year < 50 ? 2000 : 1900;
-        const d = new Date(year, m, +textMonth[1]);
+        const d = new Date(Date.UTC(year, m, +textMonth[1]));
         if (!Number.isNaN(d.getTime())) return d;
       }
     }
@@ -127,7 +127,7 @@ export function parseDate(val: unknown): Date | null {
       if (m !== undefined) {
         let year = +textMonthFirst[3];
         if (year < 100) year += year < 50 ? 2000 : 1900;
-        const d = new Date(year, m, +textMonthFirst[2]);
+        const d = new Date(Date.UTC(year, m, +textMonthFirst[2]));
         if (!Number.isNaN(d.getTime())) return d;
       }
     }
@@ -140,9 +140,9 @@ export function parseDate(val: unknown): Date | null {
 export function serializeImportCell(val: unknown): unknown {
   if (val instanceof Date) {
     if (Number.isNaN(val.getTime())) return null;
-    const d = val.getDate();
-    const m = val.getMonth() + 1;
-    const y = val.getFullYear();
+    const d = val.getUTCDate();
+    const m = val.getUTCMonth() + 1;
+    const y = val.getUTCFullYear();
     return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${y}`;
   }
   return val;

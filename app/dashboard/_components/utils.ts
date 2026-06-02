@@ -7,6 +7,7 @@ export function formatDate(raw: string | null): string {
         day: "2-digit",
         month: "short",
         year: "numeric",
+        timeZone: "UTC",
       });
 }
 
