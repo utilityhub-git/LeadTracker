@@ -140,9 +140,9 @@ export function parseDate(val: unknown): Date | null {
 export function serializeImportCell(val: unknown): unknown {
   if (val instanceof Date) {
     if (Number.isNaN(val.getTime())) return null;
-    const d = val.getUTCDate();
-    const m = val.getUTCMonth() + 1;
-    const y = val.getUTCFullYear();
+    const d = val.getDate();
+    const m = val.getMonth() + 1;
+    const y = val.getFullYear();
     return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${y}`;
   }
   return val;

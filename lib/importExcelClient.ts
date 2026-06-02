@@ -14,7 +14,7 @@ import {
 } from "./excelParse";
 
 /** Rows per API request — kept small so each request finishes within Vercel's function timeout */
-export const IMPORT_CHUNK_SIZE = 300;
+export const IMPORT_CHUNK_SIZE = 600;
 
 const CHUNK_MAX_RETRIES = 3;
 
