@@ -13,9 +13,9 @@ import {
   type ColMap,
 } from "./excelParse";
 
-/** Rows per API request */
-export const IMPORT_CHUNK_SIZE = 800;
-const CHUNK_MAX_RETRIES = 3;
+/** Rows per API request — max allowed by server is 500 */
+export const IMPORT_CHUNK_SIZE = 500;
+
 export type ImportProgress = {
   sheet: string;
   chunk: number;
