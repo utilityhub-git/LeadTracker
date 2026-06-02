@@ -11,8 +11,8 @@ import {
   type RowPair,
 } from "./excelParse";
 
-/** Rows per API request — keeps each serverless invocation short */
-export const IMPORT_CHUNK_SIZE = 250;
+/** Rows per API request — max allowed by server is 500 */
+export const IMPORT_CHUNK_SIZE = 500;
 
 export type ImportProgress = {
   sheet: string;
