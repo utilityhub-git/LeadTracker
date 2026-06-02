@@ -64,8 +64,11 @@ export function parseDate(val: unknown): Date | null {
       if (!Number.isNaN(d.getTime())) return d;
     }
 
-    // Normalise double separators: "16//022024" → "16/022024"
-    const cleaned = s.replace(/([\/\-\.]) *\1+/g, "$1");
+    // Normalise separators: strip spaces around them and collapse doubles
+    // "30-04 -2026" → "30-04-2026",  "16//022024" → "16/022024"
+    const cleaned = s
+      .replace(/\s*([\/\-\.])\s*/g, "$1")   // strip spaces around separators
+      .replace(/([\/\-\.])\1+/g, "$1");      // collapse repeated separators
 
     // d/m/yyyy or dd/mm/yyyy (/, -, .) — also handles US MM/DD/YYYY when day > 12
     const numFull = cleaned.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
@@ -82,10 +85,20 @@ export function parseDate(val: unknown): Date | null {
       if (!Number.isNaN(d2.getTime()) && d2.getMonth() === day - 1) return d2;
     }
 
-    // "16/022024" — missing separator between month and year
+    // "16/022024" — missing separator between month and year (dd/mmyyyy)
     const numMissingSep = cleaned.match(/^(\d{1,2})[\/\-\.](\d{2})(\d{4})$/);
     if (numMissingSep) {
       const day = +numMissingSep[1], month = +numMissingSep[2], year = +numMissingSep[3];
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        const d = new Date(year, month - 1, day);
+        if (!Number.isNaN(d.getTime()) && d.getMonth() === month - 1) return d;
+      }
+    }
+
+    // "21/0602023" — dd/mm + extra leading zero + yyyy (e.g. 21 June 2023)
+    const numLeadZeroYear = cleaned.match(/^(\d{1,2})[\/\-\.](\d{2})0(\d{4})$/);
+    if (numLeadZeroYear) {
+      const day = +numLeadZeroYear[1], month = +numLeadZeroYear[2], year = +numLeadZeroYear[3];
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
         const d = new Date(year, month - 1, day);
         if (!Number.isNaN(d.getTime()) && d.getMonth() === month - 1) return d;
@@ -244,7 +257,8 @@ export function padRow(row: unknown[], columnCount: number): unknown[] {
 
 export function normalizeNmi(val: unknown): string | null {
   if (val == null) return null;
-  const s = String(val).trim();
+  // Strip all whitespace (some utilities format NMIs with spaces, e.g. "6306 0473172")
+  const s = String(val).replace(/\s/g, "");
   if (s.length < 6 || looksLikeDate(s)) return null;
   return s;
 }
