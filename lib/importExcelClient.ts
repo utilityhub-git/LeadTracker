@@ -16,6 +16,8 @@ import {
 /** Rows per API request — max allowed by server is 500 */
 export const IMPORT_CHUNK_SIZE = 500;
 
+const CHUNK_MAX_RETRIES = 3;
+
 export type ImportProgress = {
   sheet: string;
   chunk: number;
