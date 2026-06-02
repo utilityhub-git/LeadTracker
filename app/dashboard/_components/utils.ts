@@ -2,12 +2,12 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
 
 export function formatDate(raw: string | null): string {
   if (!raw) return "—";
-  // Stored format is "dd-mm-yyyy"
-  const m = raw.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (m) {
-    const month = parseInt(m[2], 10);
+  // dd/mm/yyyy or dd-mm-yyyy
+  const dmy = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) {
+    const month = parseInt(dmy[2], 10);
     if (month >= 1 && month <= 12) {
-      return `${m[1]} ${MONTHS[month - 1]} ${m[3]}`;
+      return `${dmy[1].padStart(2, "0")} ${MONTHS[month - 1]} ${dmy[3]}`;
     }
   }
   return raw;

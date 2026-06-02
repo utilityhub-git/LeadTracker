@@ -150,11 +150,17 @@ export function serializeImportCell(val: unknown): unknown {
 
 export function serializeImportRow(
   row: unknown[],
+  fmt: unknown[],
   dateCol: number | null,
 ): unknown[] {
-  return row.map((cell, i) =>
-    dateCol === i ? serializeImportCell(cell) : cell,
-  );
+  return row.map((cell, i) => {
+    if (dateCol !== i) return cell;
+    // Use the Excel-formatted string (e.g. "27/04/2026") when available
+    const fmtVal = fmt[i];
+    if (typeof fmtVal === "string" && fmtVal.trim()) return fmtVal.trim();
+    // Fallback: convert Date objects (legacy cellDates path)
+    return serializeImportCell(cell);
+  });
 }
 
 function dateValueLabel(val: unknown): string {
