@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   }
   if (!email.endsWith("@utilityhub.com.au")) {
     return Response.json(
-      { error: "Registration is restricted to @utilityhub.com.au email addresses" },
+      { error: "Your account is not authorized for self-service registration. Please contact your administrator." },
       { status: 403 },
     );
   }

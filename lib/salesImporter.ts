@@ -8,7 +8,8 @@ import {
   findHeaderRow,
   normalizeNmi,
   normalizePhone,
-  parseDate,
+  resolveSaleDate,
+  sampleRowsForDetection,
   sheetToRowMatrices,
 } from "./excelParse";
 import { Dnc } from "@/models/Dnc";
@@ -28,6 +29,7 @@ export interface SheetReport {
     nmi: string | null;
     date: string | null;
     center: string | null;
+    campaign: string | null;
   };
 }
 
@@ -91,6 +93,7 @@ async function importDncSheet(ws: XLSX.WorkSheet): Promise<SheetReport> {
       nmi: null,
       date: null,
       center: null,
+      campaign: null,
     },
   };
 }
@@ -125,7 +128,10 @@ export async function importExcelBuffer(buffer: ArrayBuffer): Promise<SheetRepor
     );
     const dataRaw = rowsRaw.slice(headerIdx + 1);
     const dataFmt = rowsFmt.slice(headerIdx + 1);
-    const cols = detectColumns(headers, dataRaw.slice(0, 20));
+    const cols = detectColumns(
+      headers,
+      sampleRowsForDetection(dataRaw as unknown[][], 200),
+    );
 
     if (cols.phone === null) {
       report.push({
@@ -150,8 +156,11 @@ export async function importExcelBuffer(buffer: ArrayBuffer): Promise<SheetRepor
       }
 
       const nmi = cols.nmi !== null ? normalizeNmi(raw[cols.nmi]) : null;
-      const saleDate =
-        parseDate(raw[cols.date ?? -1]) ?? parseDate(fmt[cols.date ?? -1]) ?? null;
+      const saleDate = resolveSaleDate(
+        raw as unknown[],
+        cols.date,
+        cols.date !== null ? fmt[cols.date] : undefined,
+      );
       const rawCenter = cols.center !== null ? raw[cols.center] : null;
       const centerName =
         typeof rawCenter === "string" ? rawCenter.trim() || null : null;
@@ -159,20 +168,37 @@ export async function importExcelBuffer(buffer: ArrayBuffer): Promise<SheetRepor
       const campaignName =
         typeof rawCampaign === "string" ? rawCampaign.trim() || null : null;
 
+      if (saleDate) {
+        ops.push({
+          updateOne: {
+            filter: { phone, channel: sheetName, sale_date: null },
+            update: { $set: { sale_date: saleDate } },
+          },
+        });
+      }
+
+      const update: {
+        $setOnInsert: Record<string, unknown>;
+        $set?: { sale_date: Date };
+      } = {
+        $setOnInsert: {
+          phone,
+          nmi,
+          channel: sheetName,
+          sale_date: saleDate,
+          center_name: centerName,
+          campaign_name: campaignName,
+          imported_at: new Date(),
+        },
+      };
+      if (saleDate) {
+        update.$set = { sale_date: saleDate };
+      }
+
       ops.push({
         updateOne: {
           filter: { phone, channel: sheetName, sale_date: saleDate },
-          update: {
-            $setOnInsert: {
-              phone,
-              nmi,
-              channel: sheetName,
-              sale_date: saleDate,
-              center_name: centerName,
-              campaign_name: campaignName,
-              imported_at: new Date(),
-            },
-          },
+          update,
           upsert: true,
         },
       });

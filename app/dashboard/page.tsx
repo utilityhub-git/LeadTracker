@@ -86,14 +86,14 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-slate-50">
       <DashboardHeader
         user={user}
         onImport={() => setShowModal(true)}
         onLogout={handleLogout}
       />
 
-      <main className="flex-1 overflow-y-auto p-6 space-y-6 max-w-7xl mx-auto w-full">
+      <main className="flex-1 w-full max-w-7xl mx-auto p-6 pb-10 space-y-6">
         <SearchBar
           searchMode={searchMode}
           searchInput={searchInput}

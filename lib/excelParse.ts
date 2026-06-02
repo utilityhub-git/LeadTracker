@@ -9,7 +9,16 @@ const MIN_CENTER_SCORE = 8;
 const MIN_NMI_SCORE = 6;
 
 const PHONE_KEYWORDS = ["mobile", "phone", "contact", " no", "number", "ph ", "mob"];
-const DATE_KEYWORDS = ["date", "agreement", "doa", "sold"];
+const DATE_KEYWORDS = [
+  "date",
+  "agreement",
+  "doa",
+  "sold",
+  "sign",
+  "closed",
+  "connection",
+  "install",
+];
 const CENTER_KEYWORDS = ["center", "centre", "branch", "hub", "location"];
 const CAMPAIGN_KEYWORDS = ["campaign", "camp name", "camp_name", "promo", "promotion"];
 const NMI_KEYWORDS = ["nmi", "mirn", "site_identifier", "site identifier", "electricity"];
@@ -32,8 +41,7 @@ export function parseDate(val: unknown): Date | null {
   if (val instanceof Date && !Number.isNaN(val.getTime())) return val;
 
   if (typeof val === "number") {
-    const d = XLSX.SSF.parse_date_code(val);
-    if (d) return new Date(d.y, d.m - 1, d.d);
+    return parseExcelSerial(val);
   }
 
   if (typeof val === "string") {
@@ -106,7 +114,130 @@ export function parseDate(val: unknown): Date | null {
       }
     }
   }
+
   return null;
+}
+
+/** Convert Excel cells to JSON-safe values (Date → dd-mm-yyyy string). */
+export function serializeImportCell(val: unknown): unknown {
+  if (val instanceof Date) {
+    if (Number.isNaN(val.getTime())) return null;
+    const d = val.getDate();
+    const m = val.getMonth() + 1;
+    const y = val.getFullYear();
+    return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${y}`;
+  }
+  return val;
+}
+
+export function serializeImportRow(
+  row: unknown[],
+  dateCol: number | null,
+): unknown[] {
+  return row.map((cell, i) =>
+    dateCol === i ? serializeImportCell(cell) : cell,
+  );
+}
+
+function dateValueLabel(val: unknown): string {
+  if (val == null) return "(empty)";
+  if (val instanceof Date) return val.toISOString();
+  return String(val).trim().slice(0, 40) || "(blank)";
+}
+
+/** Parse sale date from a row (values should already be serializeImportRow'd). */
+export function resolveSaleDate(
+  raw: unknown[],
+  dateCol: number | null,
+  dateFmt?: unknown,
+): Date | null {
+  if (dateCol === null) return null;
+  for (const candidate of [raw[dateCol], dateFmt]) {
+    const parsed = parseDate(candidate);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+export type DateAudit = {
+  column: string | null;
+  columnIndex: number | null;
+  rowsChecked: number;
+  parsed: number;
+  missing: number;
+  sampleFailures: string[];
+};
+
+/** Check how many rows parse a sale date before / after import (client-side). */
+export function auditDateColumn(
+  headers: string[],
+  cols: ColMap,
+  rows: { raw: unknown[] }[],
+  maxCheck = 800,
+): DateAudit {
+  const columnIndex = cols.date;
+  const column =
+    columnIndex !== null ? (headers[columnIndex] ?? null) : null;
+  if (columnIndex === null) {
+    return {
+      column: null,
+      columnIndex: null,
+      rowsChecked: 0,
+      parsed: 0,
+      missing: 0,
+      sampleFailures: ["No date column detected — check header row has DOA / Date"],
+    };
+  }
+
+  let parsed = 0;
+  let missing = 0;
+  const sampleFailures: string[] = [];
+  const toCheck = rows.slice(0, maxCheck);
+
+  for (const row of toCheck) {
+    const rawVal = row.raw[columnIndex];
+    if (rawVal == null) continue;
+
+    if (resolveSaleDate(row.raw, columnIndex)) {
+      parsed++;
+    } else {
+      missing++;
+      if (sampleFailures.length < 5) {
+        sampleFailures.push(`value=${dateValueLabel(rawVal)}`);
+      }
+    }
+  }
+
+  return {
+    column,
+    columnIndex,
+    rowsChecked: toCheck.length,
+    parsed,
+    missing,
+    sampleFailures,
+  };
+}
+
+/** Spread sample across the sheet — top rows are often blank before real data. */
+export function sampleRowsForDetection(
+  rows: unknown[][],
+  max = 40,
+): unknown[][] {
+  if (rows.length <= max) return rows;
+  const indices = new Set<number>();
+  for (let i = 0; i < max; i++) {
+    indices.add(Math.floor((i * (rows.length - 1)) / (max - 1)));
+  }
+  return [...indices].sort((a, b) => a - b).map((i) => rows[i]);
+}
+
+/** Pad sparse xlsx rows so column indexes line up with the header row. */
+export function padRow(row: unknown[], columnCount: number): unknown[] {
+  const out = new Array<unknown>(columnCount).fill(null);
+  for (let i = 0; i < row.length && i < columnCount; i++) {
+    out[i] = row[i];
+  }
+  return out;
 }
 
 export function normalizeNmi(val: unknown): string | null {
@@ -165,6 +296,7 @@ export type ColMap = {
 };
 
 export function detectColumns(headers: string[], sampleRows: unknown[][]): ColMap {
+  const sample = sampleRowsForDetection(sampleRows, 40);
   let phoneBest = { idx: null as number | null, score: 0 };
   let nmisBest = { idx: null as number | null, score: 0 };
   let dateBest = { idx: null as number | null, score: 0 };
@@ -173,7 +305,7 @@ export function detectColumns(headers: string[], sampleRows: unknown[][]): ColMa
 
   for (let idx = 0; idx < headers.length; idx++) {
     const h = (headers[idx] || "").toLowerCase().trim();
-    const vals = sampleRows.map((r) => r[idx]).filter((v) => v != null).slice(0, 15);
+    const vals = sample.map((r) => r[idx]).filter((v) => v != null).slice(0, 15);
 
     const ph =
       PHONE_KEYWORDS.filter((kw) => h.includes(kw)).length * 3 +
@@ -216,10 +348,16 @@ export function detectColumns(headers: string[], sampleRows: unknown[][]): ColMa
   }
 
   const MIN_CAMPAIGN_SCORE = 4;
+  let dateIdx =
+    dateBest.score >= MIN_DATE_SCORE ? dateBest.idx : null;
+  if (dateIdx === null) {
+    dateIdx = findBestDateColumn(sampleRowsForDetection(sampleRows, 120));
+  }
+
   const raw: ColMap = {
     phone: phoneBest.score >= MIN_PHONE_SCORE ? phoneBest.idx : null,
     nmi: nmisBest.score >= MIN_NMI_SCORE ? nmisBest.idx : null,
-    date: dateBest.score >= MIN_DATE_SCORE ? dateBest.idx : null,
+    date: dateIdx,
     center: centerBest.score >= MIN_CENTER_SCORE ? centerBest.idx : null,
     campaign: campaignBest.score >= MIN_CAMPAIGN_SCORE ? campaignBest.idx : null,
   };
@@ -260,6 +398,22 @@ export function findBestPhoneColumn(rows: unknown[][]): number | null {
       .slice(0, 30)
       .map((r) => r[idx])
       .filter(looksLikePhone).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = idx;
+    }
+  }
+  return bestScore >= 3 ? bestIdx : null;
+}
+
+export function findBestDateColumn(rows: unknown[][]): number | null {
+  const colCount = Math.max(0, ...rows.map((r) => r.length));
+  let bestIdx: number | null = null;
+  let bestScore = 0;
+  for (let idx = 0; idx < colCount; idx++) {
+    const score = sampleRowsForDetection(rows, 80)
+      .map((r) => r[idx])
+      .filter(looksLikeDate).length;
     if (score > bestScore) {
       bestScore = score;
       bestIdx = idx;

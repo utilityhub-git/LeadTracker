@@ -37,6 +37,15 @@ export type SheetReport = {
     center: string | null;
     campaign: string | null;
   };
+  /** Pre-import check: can we parse dates from the detected column? */
+  dateAudit?: {
+    column: string | null;
+    rowsChecked: number;
+    parsed: number;
+    missing: number;
+    sampleFailures: string[];
+  };
+  failedChunks?: number;
 };
 
 export type ImportResult = {

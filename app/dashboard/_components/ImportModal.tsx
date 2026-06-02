@@ -205,21 +205,45 @@ export function ImportModal({ onClose, onImported }: Props) {
                         {r.reason}
                       </span>
                     ) : (
-                      <>
-                        <span className="text-xs text-emerald-600">
-                          {r.inserted} new
-                        </span>
-                        {(r.duplicates ?? 0) > 0 && (
-                          <span className="text-xs text-slate-400">
-                            {r.duplicates} dup
+                      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                          <span className="text-xs text-emerald-600">
+                            {r.inserted} new
                           </span>
+                          {(r.duplicates ?? 0) > 0 && (
+                            <span className="text-xs text-slate-400">
+                              {r.duplicates} dup
+                            </span>
+                          )}
+                          {(r.skippedRows ?? 0) > 0 && (
+                            <span className="text-xs text-slate-400">
+                              {r.skippedRows} skipped
+                            </span>
+                          )}
+                        </div>
+                        {r.dateAudit && (
+                          <p
+                            className={cls(
+                              "text-xs",
+                              r.dateAudit.missing > 0
+                                ? "text-amber-700"
+                                : "text-slate-500",
+                            )}
+                          >
+                            Date column: {r.dateAudit.column ?? "not found"} ·{" "}
+                            {r.dateAudit.parsed} parsed
+                            {r.dateAudit.missing > 0 &&
+                              ` · ${r.dateAudit.missing} could not parse`}
+                          </p>
                         )}
-                        {(r.skippedRows ?? 0) > 0 && (
-                          <span className="text-xs text-slate-400">
-                            {r.skippedRows} skipped
-                          </span>
-                        )}
-                      </>
+                        {r.dateAudit?.sampleFailures &&
+                          r.dateAudit.sampleFailures.length > 0 &&
+                          r.dateAudit.missing > 0 && (
+                            <p className="text-xs text-amber-600/90 truncate">
+                              e.g. {r.dateAudit.sampleFailures[0]}
+                            </p>
+                          )}
+                      </div>
                     )}
                   </div>
                 ))}

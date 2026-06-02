@@ -12,14 +12,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (!body.sheet || !body.kind || !body.columns || !Array.isArray(body.rows)) {
+  if (
+    !body.sheet ||
+    !body.kind ||
+    !body.columns ||
+    typeof body.columnCount !== "number" ||
+    !Array.isArray(body.rows)
+  ) {
     return Response.json({ error: "Invalid chunk payload" }, { status: 400 });
   }
   if (body.kind !== "sales" && body.kind !== "dnc") {
     return Response.json({ error: "Invalid kind" }, { status: 400 });
   }
-  if (body.rows.length > 500) {
-    return Response.json({ error: "Chunk too large (max 500 rows)" }, { status: 400 });
+  if (body.rows.length > 800) {
+    return Response.json({ error: "Chunk too large (max 800 rows)" }, { status: 400 });
   }
 
   try {
@@ -27,6 +33,8 @@ export async function POST(request: Request) {
     return Response.json(result);
   } catch (err) {
     console.error("chunk import error", err);
-    return Response.json({ error: "Chunk import failed" }, { status: 500 });
+    const message =
+      err instanceof Error ? err.message : "Chunk import failed";
+    return Response.json({ error: message }, { status: 500 });
   }
 }
