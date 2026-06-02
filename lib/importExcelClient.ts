@@ -13,10 +13,13 @@ import {
   type ColMap,
 } from "./excelParse";
 
-/** Rows per API request — max allowed by server is 500 */
-export const IMPORT_CHUNK_SIZE = 500;
+/** Rows per API request */
+export const IMPORT_CHUNK_SIZE = 1500;
 
 const CHUNK_MAX_RETRIES = 3;
+
+/** Max concurrent chunk requests per sheet */
+const CHUNK_CONCURRENCY = 4;
 
 export type ImportProgress = {
   sheet: string;
@@ -151,32 +154,30 @@ export async function importExcelFileChunked(
     let importDatesParsed = 0;
     let importDatesMissing = 0;
 
-    for (const rows of chunks) {
-      try {
-        const data = await postImportChunk(
-          {
-            sheet: sheetName,
-            kind,
-            columns: cols,
-            columnCount,
-            rows,
-          },
-          sheetName,
-        );
+    const basePayload = { sheet: sheetName, kind, columns: cols, columnCount };
 
+    for (let i = 0; i < chunks.length; i += CHUNK_CONCURRENCY) {
+      const batch = chunks.slice(i, i + CHUNK_CONCURRENCY);
+      const results = await Promise.all(
+        batch.map((rows, j) =>
+          postImportChunk({ ...basePayload, rows }, sheetName).catch(() => {
+            failedChunks++;
+            throw new Error(
+              `Import stopped on ${sheetName} (batch ${i + j + 1} of ${chunks.length} failed after ${CHUNK_MAX_RETRIES} retries). Earlier batches for this sheet were saved.`,
+            );
+          }),
+        ),
+      );
+
+      for (const data of results) {
         inserted += data.inserted;
         duplicates += data.duplicates;
         skippedRows += data.skippedRows;
         importDatesParsed += data.datesParsed ?? 0;
         importDatesMissing += data.datesMissing ?? 0;
-      } catch {
-        failedChunks++;
-        throw new Error(
-          `Import stopped on ${sheetName} (batch ${chunksDone + 1} of ${chunks.length} failed after ${CHUNK_MAX_RETRIES} retries). Earlier batches for this sheet were saved.`,
-        );
       }
 
-      chunksDone++;
+      chunksDone += batch.length;
       onProgress?.({
         sheet: sheetName,
         chunk: chunksDone,

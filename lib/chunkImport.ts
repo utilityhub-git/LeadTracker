@@ -6,7 +6,6 @@ import {
   normalizePhone,
   padRow,
 } from "./excelParse";
-import { serializeImportWrite } from "./importWriteLock";
 import { Dnc } from "@/models/Dnc";
 import { Sale } from "@/models/Sale";
 
@@ -197,15 +196,7 @@ export async function writeImportChunk(
     };
   }
 
-  return serializeImportWrite(async () => {
-    const model = kind === "dnc" ? Dnc : Sale;
-    const { inserted, duplicates } = await safeBulkWriteBatched(model, ops);
-    return {
-      inserted,
-      duplicates,
-      skippedRows,
-      datesParsed,
-      datesMissing,
-    };
-  });
+  const model = kind === "dnc" ? Dnc : Sale;
+  const { inserted, duplicates } = await safeBulkWriteBatched(model, ops);
+  return { inserted, duplicates, skippedRows, datesParsed, datesMissing };
 }
