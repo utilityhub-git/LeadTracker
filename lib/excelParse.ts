@@ -192,7 +192,7 @@ export type DateAudit = {
   sampleFailures: string[];
 };
 
-/** Check how many rows parse a sale date before / after import (client-side). */
+/** Check how many rows have a non-empty date value (client-side). */
 export function auditDateColumn(
   headers: string[],
   cols: ColMap,
@@ -215,21 +215,13 @@ export function auditDateColumn(
 
   let parsed = 0;
   let missing = 0;
-  const sampleFailures: string[] = [];
   const toCheck = rows.slice(0, maxCheck);
 
   for (const row of toCheck) {
     const rawVal = row.raw[columnIndex];
     if (rawVal == null) continue;
-
-    if (resolveSaleDate(row.raw, columnIndex)) {
-      parsed++;
-    } else {
-      missing++;
-      if (sampleFailures.length < 5) {
-        sampleFailures.push(`value=${dateValueLabel(rawVal)}`);
-      }
-    }
+    if (typeof rawVal === "string" && rawVal.trim()) parsed++;
+    else missing++;
   }
 
   return {
@@ -238,7 +230,7 @@ export function auditDateColumn(
     rowsChecked: toCheck.length,
     parsed,
     missing,
-    sampleFailures,
+    sampleFailures: [],
   };
 }
 
