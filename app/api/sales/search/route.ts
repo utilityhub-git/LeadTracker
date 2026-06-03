@@ -36,5 +36,17 @@ export async function GET(request: Request) {
   const nmi = normalizeNmi(rawNmi);
   if (!nmi) return Response.json({ error: "Invalid NMI / MIRN value." }, { status: 400 });
   const channels = await searchByNmi(nmi);
-  return Response.json({ type: "nmi", query: nmi, found: channels.length > 0, channels });
+
+  // Check DNC for every unique phone in the results
+  const uniquePhones = [...new Set(channels.flatMap((ch) => ch.records.map((r) => r.phone)))];
+  const dncResults = await Promise.all(uniquePhones.map((p) => isPhoneInDnc(p)));
+  const dncPhones = new Set(uniquePhones.filter((_, i) => dncResults[i]));
+  const inDnc = dncPhones.size > 0;
+
+  const channelsWithDnc = channels.map((ch) => ({
+    ...ch,
+    records: ch.records.map((r) => ({ ...r, inDnc: dncPhones.has(r.phone) })),
+  }));
+
+  return Response.json({ type: "nmi", query: nmi, found: channels.length > 0, channels: channelsWithDnc, inDnc });
 }

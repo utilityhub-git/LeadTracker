@@ -28,8 +28,8 @@ function DncOnlyCard({ phone }: Readonly<{ phone: string }>) {
 
 export function SearchResults({ result, onClose }: Props) {
   const [closedChannels, setClosedChannels] = useState<Set<string>>(() => new Set());
-  const inDnc = result.type === "phone" && !!result.inDnc;
-  const showDncColumn = result.type === "phone" && inDnc;
+  const inDnc = !!result.inDnc;
+  const showDncColumn = inDnc;
 
   useEffect(() => {
     setClosedChannels(new Set());
@@ -173,14 +173,16 @@ export function SearchResults({ result, onClose }: Props) {
                         <td
                           className={cls(
                             "px-4 py-2.5 font-mono text-xs whitespace-nowrap",
-                            inDnc ? "text-red-600 font-semibold" : "text-slate-700",
+                            r.inDnc ? "text-red-600 font-semibold" : "text-slate-700",
                           )}
                         >
                           {r.phone}
                         </td>
                         {showDncColumn && (
-                          <td className="px-4 py-2.5 text-xs font-semibold text-red-600">
-                            Yes
+                          <td className="px-4 py-2.5 text-xs font-semibold">
+                            {r.inDnc
+                              ? <span className="text-red-600">Yes</span>
+                              : <span className="text-slate-300">—</span>}
                           </td>
                         )}
                         <td className="px-4 py-2.5 font-mono text-xs text-slate-600 whitespace-nowrap">
