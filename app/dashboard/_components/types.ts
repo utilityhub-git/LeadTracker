@@ -6,6 +6,8 @@ export type SearchRecord = {
   sale_date: string | null;
   center_name: string | null;
   campaign_name: string | null;
+  /** True when this record's phone number appears on the DNC list */
+  inDnc?: boolean;
 };
 
 export type SearchChannel = {
