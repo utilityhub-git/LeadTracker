@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if (!email.endsWith("@utilityhub.com.au")) {
+  if (!email.endsWith("@utilityhub.com.au") && !email.endsWith("@messold.com")) {
     return Response.json(
       { error: "Your account is not authorized for self-service registration. Please contact your administrator." },
       { status: 403 },
