@@ -24,11 +24,15 @@ export async function GET(request: Request) {
       searchByPhone(phone),
       isPhoneInDnc(phone),
     ]);
+    const channelsWithDnc = channels.map((ch) => ({
+      ...ch,
+      records: ch.records.map((r) => ({ ...r, inDnc })),
+    }));
     return Response.json({
       type: "phone",
       query: phone,
-      found: channels.length > 0 || inDnc,
-      channels,
+      found: channelsWithDnc.length > 0 || inDnc,
+      channels: channelsWithDnc,
       inDnc,
     });
   }
