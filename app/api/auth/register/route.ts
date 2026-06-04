@@ -1,4 +1,9 @@
 import bcrypt from "bcryptjs";
+import {
+  isAdminEmail,
+  isAllowedEmail,
+  normalizeAuthEmail,
+} from "@/lib/accessControl";
 import { connectDb } from "@/lib/db";
 import { User } from "@/models/User";
 
@@ -6,10 +11,6 @@ type RegisterBody = {
   email?: string;
   password?: string;
 };
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
 
 export const runtime = "nodejs";
 
@@ -21,9 +22,8 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const email = body.email ? normalizeEmail(body.email) : "";
+  const email = body.email ? normalizeAuthEmail(body.email) : "";
   const password = body.password ?? "";
-
 
   if (!email || !password) {
     return Response.json(
@@ -37,9 +37,12 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if (!email.endsWith("@utilityhub.com.au") && !email.endsWith("@messold.com")) {
+  if (!isAllowedEmail(email)) {
     return Response.json(
-      { error: "Your account is not authorized for self-service registration. Please contact your administrator." },
+      {
+        error:
+          "This email is not authorized to register. Please contact your administrator.",
+      },
       { status: 403 },
     );
   }
@@ -51,6 +54,8 @@ export async function POST(req: Request) {
     const user = await User.create({
       email,
       passwordHash,
+      hasAccess: true,
+      isAdmin: isAdminEmail(email),
     });
 
     const userId = user._id.toString();

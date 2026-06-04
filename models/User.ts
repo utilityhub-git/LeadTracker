@@ -10,6 +10,9 @@ const UserSchema = new Schema(
       trim: true,
     },
     passwordHash: { type: String, required: true, select: false },
+    /** Soft revoke — user stays in DB but cannot use the dashboard */
+    hasAccess: { type: Boolean, default: true },
+    isAdmin: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

@@ -8,6 +8,7 @@ import { EmptyState } from "./_components/EmptyState";
 import { ImportModal } from "./_components/ImportModal";
 import { SearchBar } from "./_components/SearchBar";
 import { SearchResults } from "./_components/SearchResults";
+import { UserAccessPanel } from "./_components/UserAccessPanel";
 import type { SearchResult, User } from "./_components/types";
 
 export default function DashboardPage() {
@@ -22,6 +23,7 @@ export default function DashboardPage() {
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const [showModal, setShowModal] = useState(false);
+  const [showUsersPanel, setShowUsersPanel] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -91,6 +93,9 @@ export default function DashboardPage() {
         user={user}
         onImport={() => setShowModal(true)}
         onLogout={handleLogout}
+        onManageUsers={
+          user?.isAdmin ? () => setShowUsersPanel(true) : undefined
+        }
       />
 
       <main className="flex-1 w-full max-w-7xl mx-auto p-6 pb-10 space-y-6">
@@ -124,6 +129,13 @@ export default function DashboardPage() {
         <ImportModal
           onClose={() => setShowModal(false)}
           onImported={() => {}}
+        />
+      )}
+
+      {user?.isAdmin && (
+        <UserAccessPanel
+          open={showUsersPanel}
+          onClose={() => setShowUsersPanel(false)}
         />
       )}
     </div>

@@ -1,5 +1,11 @@
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
+import {
+  isAdminEmail,
+  isAllowedEmail,
+  normalizeAuthEmail,
+  userHasAccess,
+} from "@/lib/accessControl";
 import { AUTH_COOKIE_NAME, signAuthToken } from "@/lib/auth";
 import { connectDb } from "@/lib/db";
 import { User } from "@/models/User";
@@ -8,10 +14,6 @@ type LoginBody = {
   email?: string;
   password?: string;
 };
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
 
 export const runtime = "nodejs";
 
@@ -23,13 +25,20 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const email = body.email ? normalizeEmail(body.email) : "";
+  const email = body.email ? normalizeAuthEmail(body.email) : "";
   const password = body.password ?? "";
 
   if (!email || !password) {
     return Response.json(
       { error: "email and password are required" },
       { status: 400 },
+    );
+  }
+
+  if (!isAllowedEmail(email)) {
+    return Response.json(
+      { error: "This email is not authorized to sign in." },
+      { status: 403 },
     );
   }
 
@@ -46,6 +55,18 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
+  if (!userHasAccess(user.hasAccess as boolean | undefined)) {
+    return Response.json(
+      { error: "You don't have access. Please contact an administrator." },
+      { status: 403 },
+    );
+  }
+
+  if (isAdminEmail(email) && user.isAdmin !== true) {
+    user.isAdmin = true;
+    await user.save();
+  }
+
   const userId = user._id.toString();
   const token = signAuthToken({ sub: userId, email: user.email as string });
 
@@ -59,7 +80,12 @@ export async function POST(req: Request) {
   });
 
   return Response.json({
-    user: { id: userId, email: user.email as string },
+    user: {
+      id: userId,
+      email: user.email as string,
+      isAdmin: user.isAdmin === true,
+      hasAccess: true,
+    },
   });
 }
 

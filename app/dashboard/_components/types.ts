@@ -1,4 +1,9 @@
-export type User = { id: string; email: string };
+export type User = {
+  id: string;
+  email: string;
+  isAdmin?: boolean;
+  hasAccess?: boolean;
+};
 
 export type SearchRecord = {
   phone: string;
