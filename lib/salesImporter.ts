@@ -178,7 +178,7 @@ export async function importExcelBuffer(buffer: ArrayBuffer): Promise<SheetRepor
       if (saleDate) {
         ops.push({
           updateOne: {
-            filter: { phone, channel: sheetName, sale_date: null },
+            filter: { phone, channel: sheetName, nmi, sale_date: null },
             update: { $set: { sale_date: saleDate } },
           },
         });
@@ -186,7 +186,8 @@ export async function importExcelBuffer(buffer: ArrayBuffer): Promise<SheetRepor
 
       ops.push({
         updateOne: {
-          filter: { phone, channel: sheetName, sale_date: saleDate },
+          // Duplicate = same phone + channel + sale_date + nmi/mirn
+          filter: { phone, channel: sheetName, sale_date: saleDate, nmi },
           update: {
             $setOnInsert: {
               phone,

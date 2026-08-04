@@ -160,7 +160,7 @@ export async function writeImportChunk(
       if (saleDate) {
         ops.push({
           updateOne: {
-            filter: { phone, channel: sheet, sale_date: null },
+            filter: { phone, channel: sheet, nmi, sale_date: null },
             update: { $set: { sale_date: saleDate } },
           },
         });
@@ -168,7 +168,8 @@ export async function writeImportChunk(
 
       ops.push({
         updateOne: {
-          filter: { phone, channel: sheet, sale_date: saleDate },
+          // Duplicate = same phone + channel + sale_date + nmi/mirn
+          filter: { phone, channel: sheet, sale_date: saleDate, nmi },
           update: {
             $setOnInsert: {
               phone,
